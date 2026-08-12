@@ -254,9 +254,7 @@
     const roomData = {
       status: "waiting",
       createdAt: firebase.database.ServerValue.TIMESTAMP,
-      round: 1,
-      resolvedRound: 0,
-      currentChoices: { 1: null, 2: null },
+      race: { round: 1, picks: {}, resolved: {}, acks: {} },
       players: {
         1: defaultPlayer(COLORS[1].value),
         2: null,
@@ -349,7 +347,7 @@
         }
       });
     }
-    if (typeof val.round === "number") state.round = val.round;
+    if (val.race && typeof val.race.round === "number") state.round = val.race.round;
 
     // host: begitu player 2 join saat masih 'waiting', lanjut ke fase promise
     if (val.status === "waiting" && state.myPlayer === 1 && val.players && val.players[2]) {
@@ -368,8 +366,9 @@
       handleOnlineStatusChange(val.status, val);
     }
 
-    if (val.status === "race") {
+    if (val.status === "race" && val.race) {
       handleOnlineRaceSync(val);
+      if (state.myPlayer === 1) hostMaybeAdvanceRound(val);
     }
   }
 
@@ -388,7 +387,12 @@
       const delay = Math.max(0, startAt - Date.now());
       setTimeout(() => {
         runStartingLights(() => {
-          if (state.myPlayer === 1) state.roomRef.child("status").set("race");
+          if (state.myPlayer === 1) {
+            state.roomRef.update({
+              status: "race",
+              race: { round: 1, picks: {}, resolved: {}, acks: {} },
+            });
+          }
         });
       }, delay);
     } else if (status === "race") {
@@ -401,33 +405,35 @@
     }
   }
 
+  function raceKey(round) {
+    return "r" + round;
+  }
+
   function handleOnlineRaceSync(val) {
-    const cc = val.currentChoices || { 1: null, 2: null };
-    state.choices = cc;
+    const round = val.race.round;
+    const key = raceKey(round);
+    const picks = (val.race.picks && val.race.picks[key]) || {};
+    const resolved = val.race.resolved && val.race.resolved[key];
 
     $("#hud-lap-1").textContent = `LAP ${Math.min(Math.floor(state.players[1].laps), MAX_LAPS)}/${MAX_LAPS}`;
     $("#hud-lap-2").textContent = `LAP ${Math.min(Math.floor(state.players[2].laps), MAX_LAPS)}/${MAX_LAPS}`;
-    $("#hud-round-number").textContent = state.round;
+    $("#hud-round-number").textContent = round;
     updateCarPositions(true);
 
-    const myChoiceSet = !!cc[state.myPlayer];
-    const oppNum = state.myPlayer === 1 ? 2 : 1;
-    const oppChoiceSet = !!cc[oppNum];
-    const bothSet = cc[1] && cc[2];
+    // host: begitu kedua pilihan untuk ronde ini masuk, resolve SEKALI (dijaga oleh marker `resolved[key]`)
+    if (state.myPlayer === 1 && picks[1] && picks[2] && !resolved) {
+      resolveRoundOnline(picks[1], picks[2], key);
+      return; // tunggu event berikutnya yang membawa data `resolved`
+    }
 
-    if (bothSet) {
+    if (resolved) {
       hideWaiting();
-      showOnlineRoundResult(cc[1], cc[2]);
-
-      // hanya host yang menghitung & menulis laps, dijaga dengan resolvedRound
-      if (state.myPlayer === 1 && val.resolvedRound < val.round) {
-        resolveRoundOnline(cc[1], cc[2], val.round);
-      }
-    } else if (myChoiceSet && !oppChoiceSet) {
+      showOnlineRoundResult(resolved.c1, resolved.c2);
+    } else if (picks[state.myPlayer] && !picks[state.myPlayer === 1 ? 2 : 1]) {
       $("#rps-panel").classList.add("hidden");
       $("#round-result").classList.add("hidden");
       showWaiting("Menunggu lawan memilih...", "Pilihanmu sudah terkunci. Sabar dulu ya.");
-    } else if (!myChoiceSet) {
+    } else if (!picks[state.myPlayer]) {
       hideWaiting();
       $("#round-result").classList.add("hidden");
       $("#rps-panel").classList.remove("hidden");
@@ -450,7 +456,10 @@
     $("#round-result").classList.remove("hidden");
   }
 
-  function resolveRoundOnline(c1, c2, currentRound) {
+  // Dipanggil HANYA oleh host, dan HANYA sekali per ronde karena ditulis
+  // sebagai `race/resolved/{key}` — begitu key itu ada, host tidak akan
+  // resolve ulang (lihat guard `!resolved` di handleOnlineRaceSync).
+  function resolveRoundOnline(c1, c2, key) {
     const winner = decideWinner(c1, c2);
     const p1laps = Math.min(state.players[1].laps + (winner === 0 ? 0.5 : winner === 1 ? 1 : 0), MAX_LAPS);
     const p2laps = Math.min(state.players[2].laps + (winner === 0 ? 0.5 : winner === 2 ? 1 : 0), MAX_LAPS);
@@ -459,22 +468,36 @@
     const updates = {};
     updates["players/1/laps"] = p1laps;
     updates["players/2/laps"] = p2laps;
-    updates["resolvedRound"] = currentRound;
-    updates["round"] = currentRound + 1;
+    updates[`race/resolved/${key}`] = { c1, c2, finished };
     if (finished) updates["status"] = "finished";
     state.roomRef.update(updates);
+  }
+
+  // Host: begitu KEDUA pemain sudah menekan "Lanjut Balapan" untuk ronde yang
+  // baru saja selesai, baru majukan ke ronde berikutnya. Ini juga idempotent —
+  // begitu `race/round` berubah, key lama tidak dicek lagi sehingga tidak bisa
+  // ke-trigger dua kali.
+  function hostMaybeAdvanceRound(val) {
+    const round = val.race.round;
+    const key = raceKey(round);
+    const resolved = val.race.resolved && val.race.resolved[key];
+    if (!resolved || resolved.finished) return;
+    const acks = (val.race.acks && val.race.acks[key]) || {};
+    if (acks[1] && acks[2]) {
+      state.roomRef.child("race/round").set(round + 1);
+    }
   }
 
   $("#result-continue").addEventListener("click", () => {
     if (state.mode === "online") {
       const finished = state.players[1].laps >= MAX_LAPS || state.players[2].laps >= MAX_LAPS;
+      $("#round-result").classList.add("hidden");
+      state.roomRef.child(`race/acks/${raceKey(state.round)}/${state.myPlayer}`).set(true);
       if (finished) {
         finishRace();
         return;
       }
-      $("#round-result").classList.add("hidden");
-      state.roomRef.child("currentChoices/" + state.myPlayer).set(null);
-      showWaiting("Menyiapkan ronde berikutnya...", "");
+      showWaiting("Menyiapkan ronde berikutnya...", "Menunggu lawan menekan lanjut.");
     } else {
       $("#round-result").classList.add("hidden");
       const finished = state.players[1].laps >= MAX_LAPS || state.players[2].laps >= MAX_LAPS;
@@ -890,7 +913,7 @@
       const choice = btn.dataset.choice;
 
       if (state.mode === "online") {
-        state.roomRef.child("currentChoices/" + state.myPlayer).set(choice);
+        state.roomRef.child(`race/picks/${raceKey(state.round)}/${state.myPlayer}`).set(choice);
         return;
       }
 
@@ -956,6 +979,12 @@
     $("#finish-winner-name").textContent = (winner.name || "Player " + winnerId).toUpperCase() + " WINS!";
     $("#finish-loser-name").textContent = loser.name || "Player " + loserId;
     $("#finish-promise-text").textContent = "“" + loser.promise + "”";
+
+    // Semua janji ditampilkan di podium, bukan cuma janji yang kalah
+    $("#all-promise-winner-name").textContent = winner.name || "Player " + winnerId;
+    $("#all-promise-winner-text").textContent = winner.promise ? "“" + winner.promise + "”" : "—";
+    $("#all-promise-loser-name").textContent = loser.name || "Player " + loserId;
+    $("#all-promise-loser-text").textContent = loser.promise ? "“" + loser.promise + "”" : "—";
 
     // Podium: mobil kedua pembalap (sesuai kustomisasi garasi masing-masing) tampil di atas tiangnya
     $("#podium-car-mount-1").innerHTML = carMarkup(winner, "right");
