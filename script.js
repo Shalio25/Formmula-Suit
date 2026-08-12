@@ -361,6 +361,15 @@
       checkBothPromisesSubmitted(val);
     }
 
+    // host: sama halnya di fase garasi — cek ulang setiap ada perubahan data,
+    // supaya begitu lawan konfirmasi setup belakangan (kapan pun), room tetap
+    // lanjut ke starting lights. Sebelumnya ini cuma dicek SEKALI saat host
+    // sendiri klik konfirmasi, jadi kalau host konfirmasi duluan, transisi
+    // tidak pernah kejadian dan macet di "menunggu lawan".
+    if (val.status === "garage" && state.myPlayer === 1) {
+      checkBothGarageConfirmed(val);
+    }
+
     if (val.status !== state.lastStatus) {
       state.lastStatus = val.status;
       handleOnlineStatusChange(val.status, val);
@@ -593,6 +602,16 @@
     }
   }
 
+  function checkBothGarageConfirmed(val) {
+    if (!val || !val.players || !val.players[1] || !val.players[2]) return;
+    if (val.players[1].confirmed && val.players[2].confirmed && val.status === "garage") {
+      state.roomRef.update({
+        status: "lights",
+        lightsStartedAt: Date.now() + 1500,
+      });
+    }
+  }
+
   // host juga memantau perubahan agar transisi tetap terjadi walau host submit duluan
   const originalOnRoomUpdate = onRoomUpdate;
 
@@ -772,18 +791,9 @@
       state.players[state.myPlayer].confirmed = true;
       state.roomRef.child(`players/${state.myPlayer}/confirmed`).set(true);
       showWaiting("Menunggu lawan menyelesaikan garasi...", "Setup kamu sudah terkunci.");
-
-      if (state.myPlayer === 1) {
-        state.roomRef.once("value").then((snap) => {
-          const val = snap.val();
-          if (val.players && val.players[1] && val.players[1].confirmed && val.players[2] && val.players[2].confirmed) {
-            state.roomRef.update({
-              status: "lights",
-              lightsStartedAt: Date.now() + 1500,
-            });
-          }
-        });
-      }
+      // Transisi ke starting lights ditangani terus-menerus oleh
+      // checkBothGarageConfirmed() di dalam onRoomUpdate, jadi tetap
+      // jalan walau host konfirmasi duluan ATAU belakangan.
       return;
     }
 
