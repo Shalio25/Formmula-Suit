@@ -357,6 +357,12 @@
       return;
     }
 
+    // host: pantau setiap perubahan data selama fase promise, supaya begitu
+    // lawan submit belakangan (kapan pun), room tetap lanjut ke fase garasi.
+    if (val.status === "promise" && state.myPlayer === 1) {
+      checkBothPromisesSubmitted(val);
+    }
+
     if (val.status !== state.lastStatus) {
       state.lastStatus = val.status;
       handleOnlineStatusChange(val.status, val);
