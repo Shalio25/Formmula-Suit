@@ -438,6 +438,14 @@
     if (resolved) {
       hideWaiting();
       showOnlineRoundResult(resolved.c1, resolved.c2);
+    } else if (picks[1] && picks[2]) {
+      // Kedua pilihan sudah masuk tapi host belum sempat menuliskan hasilnya
+      // (sepersekian detik jeda jaringan). Tanpa cabang ini, device non-host
+      // bisa "macet" menampilkan tombol pilihan padahal pilihannya sudah
+      // terkirim — inilah bug yang bikin input terasa tidak terinputkan.
+      $("#rps-panel").classList.add("hidden");
+      $("#round-result").classList.add("hidden");
+      showWaiting("Menghitung hasil ronde...", "Pilihan kalian berdua sudah masuk.");
     } else if (picks[state.myPlayer] && !picks[state.myPlayer === 1 ? 2 : 1]) {
       $("#rps-panel").classList.add("hidden");
       $("#round-result").classList.add("hidden");
@@ -447,7 +455,7 @@
       $("#round-result").classList.add("hidden");
       $("#rps-panel").classList.remove("hidden");
       $("#rps-turn-eyebrow").textContent = "GILIRANMU";
-      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih senjatamu diam-diam`;
+      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih formulamu diam-diam`;
     }
   }
 
@@ -885,7 +893,7 @@
     if (state.mode === "online") {
       $("#rps-panel").classList.remove("hidden");
       $("#rps-turn-eyebrow").textContent = "GILIRANMU";
-      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih senjatamu diam-diam`;
+      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih formulamu diam-diam`;
     } else {
       $("#rps-panel").classList.remove("hidden");
       setRaceTurnUI();
@@ -923,6 +931,11 @@
       const choice = btn.dataset.choice;
 
       if (state.mode === "online") {
+        // Feedback instan: langsung sembunyikan panel pilihan & tampilkan status
+        // begitu diklik, tidak menunggu event balik dari Firebase. Ini mencegah
+        // kesan "klik tidak terinputkan" saat jeda jaringan sedikit lebih lama.
+        $("#rps-panel").classList.add("hidden");
+        showWaiting("Mengunci pilihanmu...", "");
         state.roomRef.child(`race/picks/${raceKey(state.round)}/${state.myPlayer}`).set(choice);
         return;
       }
