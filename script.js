@@ -361,15 +361,6 @@
       checkBothPromisesSubmitted(val);
     }
 
-    // host: sama halnya di fase garasi — cek ulang setiap ada perubahan data,
-    // supaya begitu lawan konfirmasi setup belakangan (kapan pun), room tetap
-    // lanjut ke starting lights. Sebelumnya ini cuma dicek SEKALI saat host
-    // sendiri klik konfirmasi, jadi kalau host konfirmasi duluan, transisi
-    // tidak pernah kejadian dan macet di "menunggu lawan".
-    if (val.status === "garage" && state.myPlayer === 1) {
-      checkBothGarageConfirmed(val);
-    }
-
     if (val.status !== state.lastStatus) {
       state.lastStatus = val.status;
       handleOnlineStatusChange(val.status, val);
@@ -438,14 +429,6 @@
     if (resolved) {
       hideWaiting();
       showOnlineRoundResult(resolved.c1, resolved.c2);
-    } else if (picks[1] && picks[2]) {
-      // Kedua pilihan sudah masuk tapi host belum sempat menuliskan hasilnya
-      // (sepersekian detik jeda jaringan). Tanpa cabang ini, device non-host
-      // bisa "macet" menampilkan tombol pilihan padahal pilihannya sudah
-      // terkirim — inilah bug yang bikin input terasa tidak terinputkan.
-      $("#rps-panel").classList.add("hidden");
-      $("#round-result").classList.add("hidden");
-      showWaiting("Menghitung hasil ronde...", "Pilihan kalian berdua sudah masuk.");
     } else if (picks[state.myPlayer] && !picks[state.myPlayer === 1 ? 2 : 1]) {
       $("#rps-panel").classList.add("hidden");
       $("#round-result").classList.add("hidden");
@@ -455,7 +438,7 @@
       $("#round-result").classList.add("hidden");
       $("#rps-panel").classList.remove("hidden");
       $("#rps-turn-eyebrow").textContent = "GILIRANMU";
-      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih formulamu diam-diam`;
+      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih senjatamu diam-diam`;
     }
   }
 
@@ -607,16 +590,6 @@
     if (!val || !val.players || !val.players[1] || !val.players[2]) return;
     if (val.players[1].promiseSubmitted && val.players[2].promiseSubmitted && val.status === "promise") {
       state.roomRef.child("status").set("garage");
-    }
-  }
-
-  function checkBothGarageConfirmed(val) {
-    if (!val || !val.players || !val.players[1] || !val.players[2]) return;
-    if (val.players[1].confirmed && val.players[2].confirmed && val.status === "garage") {
-      state.roomRef.update({
-        status: "lights",
-        lightsStartedAt: Date.now() + 1500,
-      });
     }
   }
 
@@ -799,9 +772,18 @@
       state.players[state.myPlayer].confirmed = true;
       state.roomRef.child(`players/${state.myPlayer}/confirmed`).set(true);
       showWaiting("Menunggu lawan menyelesaikan garasi...", "Setup kamu sudah terkunci.");
-      // Transisi ke starting lights ditangani terus-menerus oleh
-      // checkBothGarageConfirmed() di dalam onRoomUpdate, jadi tetap
-      // jalan walau host konfirmasi duluan ATAU belakangan.
+
+      if (state.myPlayer === 1) {
+        state.roomRef.once("value").then((snap) => {
+          const val = snap.val();
+          if (val.players && val.players[1] && val.players[1].confirmed && val.players[2] && val.players[2].confirmed) {
+            state.roomRef.update({
+              status: "lights",
+              lightsStartedAt: Date.now() + 1500,
+            });
+          }
+        });
+      }
       return;
     }
 
@@ -893,7 +875,7 @@
     if (state.mode === "online") {
       $("#rps-panel").classList.remove("hidden");
       $("#rps-turn-eyebrow").textContent = "GILIRANMU";
-      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih formulamu diam-diam`;
+      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih senjatamu diam-diam`;
     } else {
       $("#rps-panel").classList.remove("hidden");
       setRaceTurnUI();
@@ -931,11 +913,6 @@
       const choice = btn.dataset.choice;
 
       if (state.mode === "online") {
-        // Feedback instan: langsung sembunyikan panel pilihan & tampilkan status
-        // begitu diklik, tidak menunggu event balik dari Firebase. Ini mencegah
-        // kesan "klik tidak terinputkan" saat jeda jaringan sedikit lebih lama.
-        $("#rps-panel").classList.add("hidden");
-        showWaiting("Mengunci pilihanmu...", "");
         state.roomRef.child(`race/picks/${raceKey(state.round)}/${state.myPlayer}`).set(choice);
         return;
       }
