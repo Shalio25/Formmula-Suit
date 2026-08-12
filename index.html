@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>F1 Suit Race</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Titillium+Web:ital,wght@0,400;0,600;0,700;0,900;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="grid-overlay" aria-hidden="true"></div>
+<div class="track-stripe" aria-hidden="true"></div>
+
+<main id="app">
+
+  <!-- ============ FASE 0 : PILIH MODE ============ -->
+  <section id="screen-mode" class="screen active">
+    <div class="checker-band" aria-hidden="true"></div>
+    <div class="phase-header center">
+      <p class="eyebrow">GRAND PRIX · SUIT EDITION</p>
+      <h1 class="title-xl">LIGHTS OUT<span class="accent">.</span></h1>
+      <p class="tagline">Batu · Gunting · Kertas — 3 lap, satu pemenang, satu janji kelingking yang tidak bisa diingkari.</p>
+    </div>
+    <div class="mode-grid">
+      <button type="button" id="mode-local" class="mode-card">
+        <svg viewBox="0 0 64 64" class="mode-icon"><rect x="10" y="6" width="20" height="52" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><rect x="34" y="6" width="20" height="52" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="20" cy="49" r="2" fill="currentColor"/><circle cx="44" cy="49" r="2" fill="currentColor"/></svg>
+        <h3>Satu Device</h3>
+        <p>Main bergantian (pass &amp; play) di HP atau laptop yang sama.</p>
+      </button>
+      <button type="button" id="mode-online" class="mode-card">
+        <svg viewBox="0 0 64 64" class="mode-icon"><circle cx="16" cy="32" r="9" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="48" cy="32" r="9" fill="none" stroke="currentColor" stroke-width="3"/><path d="M25 32h14" stroke="currentColor" stroke-width="3" stroke-dasharray="4 4"/></svg>
+        <h3>Online — Kode Room</h3>
+        <p>Buat atau gabung room dengan kode yang sama persis.</p>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ FASE 0b : LOBBY ONLINE ============ -->
+  <section id="screen-lobby" class="screen">
+    <div class="phase-header center">
+      <p class="eyebrow">FASE ONLINE</p>
+      <h2 class="title-lg">Room Balapan</h2>
+      <p class="tagline">Satu orang buat room, satu orang gabung pakai kode yang sama persis.</p>
+    </div>
+
+    <div id="lobby-grid" class="lobby-grid">
+      <div class="lobby-card">
+        <h3>Buat Room</h3>
+        <p>Kamu jadi <strong>Player 1 (Host)</strong>.</p>
+        <button type="button" id="btn-create-room" class="btn btn-primary btn-wide">Buat Room Baru</button>
+      </div>
+      <div class="lobby-card">
+        <h3>Gabung Room</h3>
+        <p>Kamu jadi <strong>Player 2</strong>.</p>
+        <input type="text" id="join-code-input" maxlength="5" placeholder="KODE ROOM" class="code-input" autocomplete="off" />
+        <button type="button" id="btn-join-room" class="btn btn-gold btn-wide">Gabung Room</button>
+      </div>
+    </div>
+
+    <div id="lobby-status" class="lobby-status hidden">
+      <p class="eyebrow">KODE ROOM KAMU</p>
+      <div id="lobby-room-code" class="room-code">-----</div>
+      <p class="tagline">Kirim kode ini ke temanmu lewat chat. Menunggu Player 2 bergabung...</p>
+      <div class="spinner"></div>
+    </div>
+
+    <p id="lobby-error" class="lobby-error hidden"></p>
+    <button type="button" id="btn-lobby-back" class="btn-link">← Kembali pilih mode</button>
+  </section>
+
+  <!-- ============ FASE 1 : START + PINKY PROMISE ============ -->
+  <section id="screen-start" class="screen">
+    <header class="hero">
+      <div class="hero-text">
+        <p class="eyebrow" id="promise-eyebrow">FASE 1</p>
+        <h2 class="title-lg">Pinky Promise</h2>
+        <p class="tagline">Tulis taruhan/tantangan yang wajib dijalani kalau kalah. Tidak ada acara ingkar janji di grid start.</p>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <svg viewBox="0 0 220 300" class="driver-silhouette">
+          <ellipse cx="110" cy="70" rx="46" ry="48" fill="var(--c-panel-3)"/>
+          <path d="M64 78 C64 40 90 18 110 18 C130 18 156 40 156 78 L156 92 C156 100 148 106 138 106 L82 106 C72 106 64 100 64 92 Z" fill="var(--c-ink)"/>
+          <path d="M70 74 C70 58 96 44 110 44 C124 44 150 58 150 74 L150 78 L70 78 Z" fill="var(--c-red)"/>
+          <rect x="88" y="70" width="44" height="16" rx="6" fill="#0b0d10" opacity="0.85"/>
+          <path d="M96 120 C70 128 58 160 58 200 L58 280 L162 280 L162 200 C162 160 150 128 124 120 Z" fill="var(--c-ink)"/>
+          <path d="M58 200 L58 280 L92 280 L92 190 Z" fill="var(--c-red)"/>
+          <path d="M162 200 L162 280 L128 280 L128 190 Z" fill="var(--c-red)"/>
+        </svg>
+      </div>
+    </header>
+
+    <form id="form-promise" class="promise-grid" autocomplete="off">
+      <div class="promise-card" data-player="1" id="promise-card-1">
+        <div class="promise-card-head">
+          <span class="p-chip p1">P1</span>
+          <h2>Player 1</h2>
+        </div>
+        <label class="field">
+          <span>Nama Pembalap</span>
+          <input type="text" id="p1-name" placeholder="Ujankk67" maxlength="16" />
+        </label>
+        <label class="field">
+          <span>Janji / Tantangan jika kalah</span>
+          <textarea id="p1-promise" placeholder="Jangan Bilang Terserahh" maxlength="140"></textarea>
+        </label>
+      </div>
+
+      <div class="pinky-divider" aria-hidden="true">
+        <svg viewBox="0 0 100 140" class="pinky-icon">
+          <path d="M25 90 C10 80 8 55 20 40 C28 30 40 32 42 45 L46 80" fill="none" stroke="var(--c-yellow)" stroke-width="7" stroke-linecap="round"/>
+          <path d="M75 90 C90 80 92 55 80 40 C72 30 60 32 58 45 L54 80" fill="none" stroke="var(--c-red)" stroke-width="7" stroke-linecap="round"/>
+          <circle cx="50" cy="88" r="10" fill="var(--c-panel-3)"/>
+        </svg>
+        <span class="pinky-label">Segel Janji</span>
+      </div>
+
+      <div class="promise-card" data-player="2" id="promise-card-2">
+        <div class="promise-card-head">
+          <span class="p-chip p2">P2</span>
+          <h2>Player 2</h2>
+        </div>
+        <label class="field">
+          <span>Nama Pembalap</span>
+          <input type="text" id="p2-name" placeholder="Alekkabon" maxlength="16" />
+        </label>
+        <label class="field">
+          <span>Janji / Tantangan jika kalah</span>
+          <textarea id="p2-promise" placeholder="TERSERAHH AKUUU" maxlength="140"></textarea>
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-wide promise-submit">
+        <svg viewBox="0 0 24 24" class="btn-icon"><path d="M4 15c-2-2-2-6 1-8 2-1.5 4 0 4 2l1 5M20 15c2-2 2-6-1-8-2-1.5-4 0-4 2l-1 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="14.5" r="2.4" fill="currentColor"/></svg>
+        <span id="promise-submit-label">Pinky Promise &amp; Masuk Garasi</span>
+      </button>
+    </form>
+  </section>
+
+  <!-- ============ FASE 2 : GARASI / KUSTOMISASI ============ -->
+  <section id="screen-garage" class="screen">
+    <div class="phase-header">
+      <p class="eyebrow">FASE 2</p>
+      <h2 class="title-lg">Garasi Tim <span id="garage-turn-badge" class="turn-badge">P1</span></h2>
+      <p class="tagline" id="garage-turn-copy">Player 1, atur livery mobilmu sebelum turun ke grid.</p>
+    </div>
+
+    <div class="garage-layout">
+      <div class="car-preview-wrap">
+        <div class="car-preview-stage">
+          <div id="garage-car-mount" class="car-mount"></div>
+        </div>
+        <div class="preview-tags">
+          <span id="tag-color" class="preview-tag">Warna: —</span>
+          <span id="tag-tire" class="preview-tag">Ban: —</span>
+          <span id="tag-wing" class="preview-tag">Aero: —</span>
+          <span id="tag-sticker" class="preview-tag">Stiker: —</span>
+          <span id="tag-livery" class="preview-tag">Livery: —</span>
+        </div>
+      </div>
+
+      <div class="garage-controls">
+        <div class="control-block">
+          <h3>Livery Mobil</h3>
+          <div id="livery-options" class="livery-row"></div>
+        </div>
+
+        <div class="control-block">
+          <h3>Warna Mobil</h3>
+          <div id="color-options" class="swatch-row"></div>
+        </div>
+
+        <div class="control-block">
+          <h3>Compound Ban</h3>
+          <div id="tire-options" class="tire-row"></div>
+        </div>
+
+        <div class="control-block">
+          <h3>Gaya Aero</h3>
+          <div id="wing-options" class="wing-row"></div>
+        </div>
+
+        <div class="control-block">
+          <h3>Stiker Livery</h3>
+          <div id="sticker-options" class="sticker-row"></div>
+        </div>
+
+        <button id="btn-confirm-garage" class="btn btn-primary btn-wide">Konfirmasi Setup Player 1</button>
+      </div>
+    </div>
+
+    <button id="btn-to-grid" class="btn btn-gold btn-wide hidden">Go to Starting Grid →</button>
+  </section>
+
+  <!-- overlay pass-device: dipakai HANYA untuk mode 1 device -->
+  <div id="pass-overlay" class="pass-overlay hidden">
+    <div class="pass-card">
+      <svg viewBox="0 0 24 24" class="pass-icon"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5L12 2z" fill="var(--c-yellow)"/></svg>
+      <h3 id="pass-title">Oper HP ke Player 2</h3>
+      <p id="pass-copy">Giliran Player 2 mengatur mobilnya. Jangan intip pilihan lawan!</p>
+      <button id="pass-continue" class="btn btn-primary">Lanjutkan</button>
+    </div>
+  </div>
+
+  <!-- overlay waiting: dipakai HANYA untuk mode online -->
+  <div id="waiting-panel" class="pass-overlay hidden">
+    <div class="pass-card">
+      <div class="spinner"></div>
+      <h3 id="waiting-title">Menunggu lawan...</h3>
+      <p id="waiting-copy">Sabar ya, mobil lawan lagi disiapkan.</p>
+    </div>
+  </div>
+
+  <!-- ============ FASE 3 : STARTING LIGHTS ============ -->
+  <section id="screen-lights" class="screen">
+    <div class="lights-wrap">
+      <p class="eyebrow">FORMATION LAP COMPLETE</p>
+      <div id="lights-rig" class="lights-rig">
+        <div class="light-row" data-row="top">
+          <span class="light" data-col="1"></span>
+          <span class="light" data-col="2"></span>
+          <span class="light" data-col="3"></span>
+          <span class="light" data-col="4"></span>
+          <span class="light" data-col="5"></span>
+        </div>
+        <div class="light-row" data-row="bottom">
+          <span class="light" data-col="1"></span>
+          <span class="light" data-col="2"></span>
+          <span class="light" data-col="3"></span>
+          <span class="light" data-col="4"></span>
+          <span class="light" data-col="5"></span>
+        </div>
+      </div>
+      <h2 id="lights-out-text" class="lights-out-text hidden">IT'S LIGHTS OUT<br/>AND AWAY WE GO!</h2>
+    </div>
+  </section>
+
+  <!-- ============ FASE 4 : RACE / CORE GAMEPLAY ============ -->
+  <section id="screen-race" class="screen">
+    <div class="race-hud">
+      <div class="hud-player" data-player="1">
+        <span class="p-chip p1">P1</span>
+        <span id="hud-name-1" class="hud-name">Player 1</span>
+        <span id="hud-lap-1" class="hud-lap">LAP 0/3</span>
+      </div>
+      <div class="hud-round">
+        <span class="eyebrow">RONDE</span>
+        <span id="hud-round-number">1</span>
+      </div>
+      <div class="hud-player" data-player="2">
+        <span id="hud-name-2" class="hud-name">Player 2</span>
+        <span id="hud-lap-2" class="hud-lap">LAP 0/3</span>
+        <span class="p-chip p2">P2</span>
+      </div>
+    </div>
+
+    <div class="track-panel">
+      <div class="track-lane" data-lane="1">
+        <div id="lane-car-1" class="lane-car"></div>
+      </div>
+      <div class="track-markers" aria-hidden="true">
+        <span style="left:0%"></span>
+        <span style="left:33.333%"></span>
+        <span style="left:66.666%"></span>
+        <span class="finish" style="left:100%"></span>
+      </div>
+      <div class="track-lane" data-lane="2">
+        <div id="lane-car-2" class="lane-car"></div>
+      </div>
+    </div>
+
+    <div id="rps-panel" class="rps-panel">
+      <p class="eyebrow" id="rps-turn-eyebrow">GILIRAN PLAYER 1</p>
+      <h3 id="rps-turn-title">Pilih formulamu</h3>
+      <div class="rps-buttons">
+        <button class="rps-btn" data-choice="rock">
+          <svg viewBox="0 0 64 64"><path d="M14 34c0-4 3-7 6-8l2-8c1-4 5-6 8-4 2-4 8-4 9 1 4-2 8 1 8 5l3 2c4 2 6 7 5 11l-3 12c-2 6-7 9-13 9H27c-6 0-11-4-12-10z" fill="currentColor"/></svg>
+          <span>Batu</span>
+        </button>
+        <button class="rps-btn" data-choice="paper">
+          <svg viewBox="0 0 64 64"><rect x="16" y="10" width="32" height="44" rx="4" fill="currentColor"/></svg>
+          <span>Kertas</span>
+        </button>
+        <button class="rps-btn" data-choice="scissors">
+          <svg viewBox="0 0 64 64"><circle cx="20" cy="18" r="7" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="20" cy="46" r="7" fill="none" stroke="currentColor" stroke-width="4"/><path d="M26 22L50 50M26 42L50 14" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>
+          <span>Gunting</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="round-result" class="round-result hidden">
+      <div class="result-choices">
+        <div class="result-choice"><span id="result-name-1"></span><div id="result-icon-1" class="result-icon"></div></div>
+        <span class="result-vs">VS</span>
+        <div class="result-choice"><span id="result-name-2"></span><div id="result-icon-2" class="result-icon"></div></div>
+      </div>
+      <h3 id="result-headline">—</h3>
+      <button id="result-continue" class="btn btn-primary">Lanjut Balapan →</button>
+    </div>
+  </section>
+
+  <!-- ============ FASE 5 : FINISH & TAGIHAN JANJI ============ -->
+  <section id="screen-finish" class="screen">
+    <div class="confetti" id="confetti-layer" aria-hidden="true"></div>
+    <div class="finish-content">
+      <p class="eyebrow">PODIUM</p>
+
+      <div class="podium-stage">
+        <div class="podium-steps">
+          <div class="podium-step podium-step-2">
+            <div id="podium-car-mount-2" class="podium-car-mount podium-car-mount-2"></div>
+            <span id="podium-name-2" class="podium-driver">—</span>
+            <div class="podium-block block-2"><span class="podium-num">2</span></div>
+          </div>
+          <div class="podium-step podium-step-1">
+            <div id="podium-car-mount-1" class="podium-car-mount podium-car-mount-1"></div>
+            <span id="podium-name-1" class="podium-driver">—</span>
+            <div class="podium-block block-1"><span class="podium-num">1</span></div>
+          </div>
+        </div>
+        <div class="podium-base" aria-hidden="true"></div>
+      </div>
+
+      <h2 id="finish-winner-name" class="title-xl">WINNER</h2>
+      <p class="tagline">Race Winner selesai duluan dalam 3 lap. Waktunya penagihan janji kelingking.</p>
+
+      <div class="pinky-final">
+        <svg viewBox="0 0 100 140" class="pinky-icon big">
+          <path d="M25 90 C10 80 8 55 20 40 C28 30 40 32 42 45 L46 80" fill="none" stroke="var(--c-yellow)" stroke-width="7" stroke-linecap="round"/>
+          <path d="M75 90 C90 80 92 55 80 40 C72 30 60 32 58 45 L54 80" fill="none" stroke="var(--c-red)" stroke-width="7" stroke-linecap="round"/>
+          <circle cx="50" cy="88" r="10" fill="var(--c-panel-3)"/>
+        </svg>
+      </div>
+
+      <div class="promise-bill">
+        <p class="eyebrow">JANJI YANG HARUS DITEPATI OLEH <span id="finish-loser-name">—</span></p>
+        <p id="finish-promise-text" class="promise-text">—</p>
+      </div>
+
+      <button id="btn-play-again" class="btn btn-primary btn-wide">Balapan Lagi</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- Firebase (mode online). Jika firebase-config.js belum diisi, mode online otomatis nonaktif dengan pesan yang jelas. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
