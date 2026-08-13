@@ -75,6 +75,7 @@
     finishTimeoutId: null,
     lightsSeen: false,          // false | true (sedang jalan) | "done" (selesai)
     pendingRaceAfterLights: false,
+    lightsTriggered: false,     // guard host: cegah tulis status "lights" dua kali
 
     players: {
       1: defaultPlayer(COLORS[1].value),
@@ -253,6 +254,9 @@
     const code = generateRoomCode();
     state.roomCode = code;
     state.myPlayer = 1;
+    state.lightsSeen = false;
+    state.pendingRaceAfterLights = false;
+    state.lightsTriggered = false;
     resetPlayers();
 
     const roomData = {
@@ -312,6 +316,9 @@
         }
         state.roomCode = code;
         state.myPlayer = 2;
+        state.lightsSeen = false;
+        state.pendingRaceAfterLights = false;
+        state.lightsTriggered = false;
         resetPlayers();
         $("#lobby-error").classList.add("hidden");
         return ref.child("players/2").set(defaultPlayer(COLORS[3].value));
@@ -672,7 +679,9 @@
 
   function checkBothGarageConfirmed(val) {
     if (!val || !val.players || !val.players[1] || !val.players[2]) return;
+    if (state.lightsTriggered) return; // cegah host menulis status "lights" dua kali dgn timestamp beda
     if (val.players[1].confirmed && val.players[2].confirmed && val.status === "garage") {
+      state.lightsTriggered = true;
       state.roomRef.update({
         status: "lights",
         lightsStartedAt: Date.now() + 1500,
@@ -904,6 +913,13 @@
   /* =========================================================================
      FASE 3 — STARTING LIGHTS
      ========================================================================= */
+  // Durasi dibuat TETAP (tidak pakai Math.random lagi) supaya animasi lampu
+  // start selesai di waktu yang SAMA PERSIS di kedua device — sebelumnya
+  // hold time acak bisa bikin animasi di satu HP selesai lebih cepat/lambat
+  // dari device lawan, menambah risiko transisi ke race terasa "meleset".
+  const LIGHTS_HOLD_MS = 700;
+  const LIGHTS_OUT_PAUSE_MS = 1600;
+
   function runStartingLights(onDone) {
     $$(".light").forEach((l) => l.classList.remove("lit"));
     $("#lights-out-text").classList.add("hidden");
@@ -915,14 +931,13 @@
 
       if (col >= 5) {
         clearInterval(interval);
-        const holdTime = 400 + Math.random() * 900;
         setTimeout(() => {
           $$(".light").forEach((l) => l.classList.remove("lit"));
           $("#lights-out-text").classList.remove("hidden");
           setTimeout(() => {
             if (typeof onDone === "function") onDone();
-          }, 1600);
-        }, holdTime);
+          }, LIGHTS_OUT_PAUSE_MS);
+        }, LIGHTS_HOLD_MS);
       }
     }, 1000);
   }
@@ -1069,9 +1084,20 @@
 
     $("#finish-winner-name").textContent = (winner.name || "Player " + winnerId).toUpperCase() + " WINS!";
     $("#finish-loser-name").textContent = loser.name || "Player " + loserId;
-    $("#finish-promise-text").textContent = "“" + loser.promise + "”";
+    // Tantangan yang WAJIB dijalani oleh yang kalah adalah tantangan yang
+    // ditulis oleh SI PEMENANG (bukan janji milik yang kalah tentang
+    // dirinya sendiri) — karena menang balapan = tantangannya ikut menang.
+    $("#finish-promise-text").textContent = "“" + winner.promise + "”";
 
-    // Semua janji ditampilkan di podium, bukan cuma janji yang kalah
+    // Konsep taruhan: tantangan milik pemenang otomatis BERLAKU dan wajib
+    // dijalani oleh yang kalah. Tantangan milik yang kalah otomatis GUGUR
+    // karena dia yang kalah.
+    const winnerName = winner.name || "Player " + winnerId;
+    const loserName = loser.name || "Player " + loserId;
+    $("#finish-rule-text").textContent =
+      `🏆 ${winnerName} menang balapan — tantangan dari ${winnerName} berlaku dan wajib dijalankan oleh ${loserName}. Tantangan ${loserName} otomatis gugur karena kalah.`;
+
+    // Semua tantangan ditampilkan di podium: punya pemenang berlaku, punya yang kalah gugur
     $("#all-promise-winner-name").textContent = winner.name || "Player " + winnerId;
     $("#all-promise-winner-text").textContent = winner.promise ? "“" + winner.promise + "”" : "—";
     $("#all-promise-loser-name").textContent = loser.name || "Player " + loserId;
@@ -1117,6 +1143,7 @@
     state.lastStatus = null;
     state.lightsSeen = false;
     state.pendingRaceAfterLights = false;
+    state.lightsTriggered = false;
     resetPlayers();
     $("#form-promise").reset();
     $("#lobby-grid").classList.remove("hidden");

@@ -64,6 +64,10 @@ p{ margin:0; }
 }
 
 .tagline{ color: var(--c-ink-dim); font-size: clamp(14px, 1.8vw, 16px); line-height:1.5; }
+.podium-rule{
+  margin-top:10px; color: var(--c-yellow); font-weight:700;
+  font-size: clamp(13px, 1.7vw, 15px); letter-spacing:0.01em;
+}
 
 .title-xl{ font-size: clamp(38px, 8vw, 76px); font-weight:900; line-height:0.95; text-transform:uppercase; }
 .title-lg{ font-size: clamp(26px, 5vw, 40px); font-weight:800; text-transform:uppercase; display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
@@ -565,6 +569,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible{
 }
 .promise-entry-tag.win{ background: rgba(0,214,107,0.15); color: var(--c-green); }
 .promise-entry-tag.due{ background: rgba(255,212,0,0.18); color: var(--c-yellow); }
+.promise-entry-tag.void{ background: rgba(255,255,255,0.08); color: var(--c-ink-dim); text-decoration: line-through; }
 .promise-entry-name{ font-family: var(--font-display); font-weight:700; font-size:15px; }
 .promise-entry-text{ font-size:13px; color: var(--c-ink-dim); line-height:1.5; }
 .promise-entry.due .promise-entry-text{ color: var(--c-ink); }

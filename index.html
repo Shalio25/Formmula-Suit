@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -77,7 +78,7 @@
       <div class="hero-text">
         <p class="eyebrow" id="promise-eyebrow">FASE 1</p>
         <h2 class="title-lg">Pinky Promise</h2>
-        <p class="tagline">Tulis taruhan/tantangan yang wajib dijalani kalau kalah. Tidak ada acara ingkar janji di grid start.</p>
+        <p class="tagline">Tulis tantangan buat lawan — kalau kamu MENANG, tantangan ini yang wajib dijalani lawan. Kalau kamu kalah, tantanganmu otomatis gugur.</p>
       </div>
       <div class="hero-art" aria-hidden="true">
         <svg viewBox="0 0 220 300" class="driver-silhouette">
@@ -103,8 +104,8 @@
           <input type="text" id="p1-name" placeholder="Ujankk67" maxlength="16" />
         </label>
         <label class="field">
-          <span>Janji / Tantangan jika kalah</span>
-          <textarea id="p1-promise" placeholder="Jangan Bilang Terserahh" maxlength="140"></textarea>
+          <span>Tantangan buat lawan (kalau AKU menang)</span>
+          <textarea id="p1-promise" placeholder="Lawan wajib traktir jajan" maxlength="140"></textarea>
         </label>
       </div>
 
@@ -127,8 +128,8 @@
           <input type="text" id="p2-name" placeholder="Alekkabon" maxlength="16" />
         </label>
         <label class="field">
-          <span>Janji / Tantangan jika kalah</span>
-          <textarea id="p2-promise" placeholder="TERSERAHH AKUUU" maxlength="140"></textarea>
+          <span>Tantangan buat lawan (kalau AKU menang)</span>
+          <textarea id="p2-promise" placeholder="Lawan wajib cuci motor" maxlength="140"></textarea>
         </label>
       </div>
 
@@ -325,6 +326,7 @@
 
       <h2 id="finish-winner-name" class="title-xl">WINNER</h2>
       <p class="tagline">Race Winner selesai duluan dalam 3 lap. Waktunya penagihan janji kelingking.</p>
+      <p id="finish-rule-text" class="podium-rule">—</p>
 
       <div class="pinky-final">
         <svg viewBox="0 0 100 140" class="pinky-icon big">
@@ -342,13 +344,13 @@
       <div class="all-promises">
         <p class="eyebrow">SEMUA JANJI KELINGKING</p>
         <div class="all-promises-grid">
-          <div class="promise-entry" id="promise-entry-winner">
-            <span class="promise-entry-tag win">MENANG — AMAN</span>
+          <div class="promise-entry due" id="promise-entry-winner">
+            <span class="promise-entry-tag win">MENANG — BERLAKU</span>
             <span id="all-promise-winner-name" class="promise-entry-name">—</span>
             <p id="all-promise-winner-text" class="promise-entry-text">—</p>
           </div>
-          <div class="promise-entry due" id="promise-entry-loser">
-            <span class="promise-entry-tag due">KALAH — WAJIB DITEPATI</span>
+          <div class="promise-entry" id="promise-entry-loser">
+            <span class="promise-entry-tag void">KALAH — GUGUR</span>
             <span id="all-promise-loser-name" class="promise-entry-name">—</span>
             <p id="all-promise-loser-text" class="promise-entry-text">—</p>
           </div>
