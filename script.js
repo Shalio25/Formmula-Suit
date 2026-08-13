@@ -73,6 +73,8 @@
     resolvingRound: false,
     finishNavigated: false,
     finishTimeoutId: null,
+    lightsSeen: false,          // false | true (sedang jalan) | "done" (selesai)
+    pendingRaceAfterLights: false,
 
     players: {
       1: defaultPlayer(COLORS[1].value),
@@ -377,7 +379,7 @@
       handleOnlineStatusChange(val.status, val);
     }
 
-    if (val.status === "race" && val.race) {
+    if ((val.status === "race" || val.status === "finished") && val.race) {
       handleOnlineRaceSync(val);
       if (state.myPlayer === 1) hostMaybeAdvanceRound(val);
     }
@@ -393,23 +395,55 @@
       showScreen("screen-garage");
     } else if (status === "lights") {
       hideWaiting();
+      state.lightsSeen = true;
       showScreen("screen-lights");
       const startAt = val.lightsStartedAt || Date.now();
       const delay = Math.max(0, startAt - Date.now());
       setTimeout(() => {
         runStartingLights(() => {
+          state.lightsSeen = "done";
           if (state.myPlayer === 1) {
             state.roomRef.update({
               status: "race",
               race: { round: 1, picks: {}, resolved: {}, acks: {} },
             });
           }
+          // Kalau event 'race' sempat tiba lebih dulu (jaringan lawan lebih
+          // cepat) sementara animasi lampu ini masih berjalan, transisi ke
+          // race baru dilakukan SEKARANG, setelah lampu selesai — bukan
+          // memotong animasinya.
+          if (state.pendingRaceAfterLights) {
+            state.pendingRaceAfterLights = false;
+            hideWaiting();
+            prepareRace();
+            showScreen("screen-race");
+          }
         });
       }, delay);
     } else if (status === "race") {
-      hideWaiting();
-      prepareRace();
-      showScreen("screen-race");
+      if (state.lightsSeen === "done") {
+        hideWaiting();
+        prepareRace();
+        showScreen("screen-race");
+      } else if (state.lightsSeen === true) {
+        // Animasi lampu sedang berjalan di device ini — biarkan selesai dulu,
+        // baru pindah ke race (lihat callback runStartingLights di atas).
+        state.pendingRaceAfterLights = true;
+      } else {
+        // Status 'lights' sempat terlewat oleh device ini (mis. koneksi
+        // sempat putus/tab di-background) — supaya SEMUA pemain tetap
+        // menyaksikan lampu start, tampilkan animasinya sekarang juga
+        // sebelum masuk ke race, alih-alih langsung lompat ke race.
+        hideWaiting();
+        state.lightsSeen = true;
+        showScreen("screen-lights");
+        runStartingLights(() => {
+          state.lightsSeen = "done";
+          hideWaiting();
+          prepareRace();
+          showScreen("screen-race");
+        });
+      }
     } else if (status === "finished") {
       // navigasi sesungguhnya dipicu lewat tombol "Lanjut Balapan" agar
       // pemain sempat lihat hasil ronde terakhir dulu.
@@ -1081,6 +1115,8 @@
     }
     state.roomCode = null;
     state.lastStatus = null;
+    state.lightsSeen = false;
+    state.pendingRaceAfterLights = false;
     resetPlayers();
     $("#form-promise").reset();
     $("#lobby-grid").classList.remove("hidden");
