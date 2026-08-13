@@ -71,6 +71,8 @@
     roomRef: null,
     lastStatus: null,
     resolvingRound: false,
+    finishNavigated: false,
+    finishTimeoutId: null,
 
     players: {
       1: defaultPlayer(COLORS[1].value),
@@ -361,6 +363,15 @@
       checkBothPromisesSubmitted(val);
     }
 
+    // host: sama halnya di fase garasi — cek ulang setiap ada perubahan data,
+    // supaya begitu lawan konfirmasi setup belakangan (kapan pun), room tetap
+    // lanjut ke starting lights. Sebelumnya ini cuma dicek SEKALI saat host
+    // sendiri klik konfirmasi, jadi kalau host konfirmasi duluan, transisi
+    // tidak pernah kejadian dan macet di "menunggu lawan".
+    if (val.status === "garage" && state.myPlayer === 1) {
+      checkBothGarageConfirmed(val);
+    }
+
     if (val.status !== state.lastStatus) {
       state.lastStatus = val.status;
       handleOnlineStatusChange(val.status, val);
@@ -409,6 +420,29 @@
     return "r" + round;
   }
 
+  // Begitu ronde yang baru saja selesai adalah ronde PENUTUP (finished=true),
+  // podium ditampilkan otomatis setelah jeda singkat untuk lihat hasil ronde
+  // terakhir — tidak perlu klik "Lanjut Balapan" lagi. Kalau pemain memang
+  // klik duluan sebelum jeda habis, podium langsung muncul saat itu juga.
+  function scheduleAutoFinish() {
+    if (state.finishNavigated) return;
+    if (state.finishTimeoutId) clearTimeout(state.finishTimeoutId);
+    state.finishTimeoutId = setTimeout(() => {
+      if (!state.finishNavigated) {
+        state.finishNavigated = true;
+        finishRace();
+      }
+    }, 1600);
+  }
+
+  function goToFinishNow() {
+    if (state.finishTimeoutId) clearTimeout(state.finishTimeoutId);
+    if (!state.finishNavigated) {
+      state.finishNavigated = true;
+      finishRace();
+    }
+  }
+
   function handleOnlineRaceSync(val) {
     const round = val.race.round;
     const key = raceKey(round);
@@ -429,6 +463,15 @@
     if (resolved) {
       hideWaiting();
       showOnlineRoundResult(resolved.c1, resolved.c2);
+      if (resolved.finished) scheduleAutoFinish();
+    } else if (picks[1] && picks[2]) {
+      // Kedua pilihan sudah masuk tapi host belum sempat menuliskan hasilnya
+      // (sepersekian detik jeda jaringan). Tanpa cabang ini, device non-host
+      // bisa "macet" menampilkan tombol pilihan padahal pilihannya sudah
+      // terkirim — inilah bug yang bikin input terasa tidak terinputkan.
+      $("#rps-panel").classList.add("hidden");
+      $("#round-result").classList.add("hidden");
+      showWaiting("Menghitung hasil ronde...", "Pilihan kalian berdua sudah masuk.");
     } else if (picks[state.myPlayer] && !picks[state.myPlayer === 1 ? 2 : 1]) {
       $("#rps-panel").classList.add("hidden");
       $("#round-result").classList.add("hidden");
@@ -438,7 +481,7 @@
       $("#round-result").classList.add("hidden");
       $("#rps-panel").classList.remove("hidden");
       $("#rps-turn-eyebrow").textContent = "GILIRANMU";
-      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih senjatamu diam-diam`;
+      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih formulamu diam-diam`;
     }
   }
 
@@ -492,17 +535,17 @@
     if (state.mode === "online") {
       const finished = state.players[1].laps >= MAX_LAPS || state.players[2].laps >= MAX_LAPS;
       $("#round-result").classList.add("hidden");
-      state.roomRef.child(`race/acks/${raceKey(state.round)}/${state.myPlayer}`).set(true);
       if (finished) {
-        finishRace();
+        goToFinishNow();
         return;
       }
+      state.roomRef.child(`race/acks/${raceKey(state.round)}/${state.myPlayer}`).set(true);
       showWaiting("Menyiapkan ronde berikutnya...", "Menunggu lawan menekan lanjut.");
     } else {
       $("#round-result").classList.add("hidden");
       const finished = state.players[1].laps >= MAX_LAPS || state.players[2].laps >= MAX_LAPS;
       if (finished) {
-        finishRace();
+        goToFinishNow();
       } else {
         state.round += 1;
         state.raceTurn = 1;
@@ -590,6 +633,16 @@
     if (!val || !val.players || !val.players[1] || !val.players[2]) return;
     if (val.players[1].promiseSubmitted && val.players[2].promiseSubmitted && val.status === "promise") {
       state.roomRef.child("status").set("garage");
+    }
+  }
+
+  function checkBothGarageConfirmed(val) {
+    if (!val || !val.players || !val.players[1] || !val.players[2]) return;
+    if (val.players[1].confirmed && val.players[2].confirmed && val.status === "garage") {
+      state.roomRef.update({
+        status: "lights",
+        lightsStartedAt: Date.now() + 1500,
+      });
     }
   }
 
@@ -772,18 +825,9 @@
       state.players[state.myPlayer].confirmed = true;
       state.roomRef.child(`players/${state.myPlayer}/confirmed`).set(true);
       showWaiting("Menunggu lawan menyelesaikan garasi...", "Setup kamu sudah terkunci.");
-
-      if (state.myPlayer === 1) {
-        state.roomRef.once("value").then((snap) => {
-          const val = snap.val();
-          if (val.players && val.players[1] && val.players[1].confirmed && val.players[2] && val.players[2].confirmed) {
-            state.roomRef.update({
-              status: "lights",
-              lightsStartedAt: Date.now() + 1500,
-            });
-          }
-        });
-      }
+      // Transisi ke starting lights ditangani terus-menerus oleh
+      // checkBothGarageConfirmed() di dalam onRoomUpdate, jadi tetap
+      // jalan walau host konfirmasi duluan ATAU belakangan.
       return;
     }
 
@@ -862,6 +906,11 @@
   }
 
   function prepareRace() {
+    state.finishNavigated = false;
+    if (state.finishTimeoutId) {
+      clearTimeout(state.finishTimeoutId);
+      state.finishTimeoutId = null;
+    }
     $("#hud-name-1").textContent = state.players[1].name || "Player 1";
     $("#hud-name-2").textContent = state.players[2].name || "Player 2";
     $("#lane-car-1").innerHTML = carMarkup(state.players[1], "right");
@@ -875,7 +924,7 @@
     if (state.mode === "online") {
       $("#rps-panel").classList.remove("hidden");
       $("#rps-turn-eyebrow").textContent = "GILIRANMU";
-      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih senjatamu diam-diam`;
+      $("#rps-turn-title").textContent = `${state.players[state.myPlayer].name}, pilih formulamu diam-diam`;
     } else {
       $("#rps-panel").classList.remove("hidden");
       setRaceTurnUI();
@@ -913,6 +962,11 @@
       const choice = btn.dataset.choice;
 
       if (state.mode === "online") {
+        // Feedback instan: langsung sembunyikan panel pilihan & tampilkan status
+        // begitu diklik, tidak menunggu event balik dari Firebase. Ini mencegah
+        // kesan "klik tidak terinputkan" saat jeda jaringan sedikit lebih lama.
+        $("#rps-panel").classList.add("hidden");
+        showWaiting("Mengunci pilihanmu...", "");
         state.roomRef.child(`race/picks/${raceKey(state.round)}/${state.myPlayer}`).set(choice);
         return;
       }
@@ -959,6 +1013,9 @@
     $("#round-result").classList.remove("hidden");
     updateHudLocal();
     updateCarPositions(true);
+
+    const finished = state.players[1].laps >= MAX_LAPS || state.players[2].laps >= MAX_LAPS;
+    if (finished) scheduleAutoFinish();
   }
 
   /* =========================================================================
@@ -1012,7 +1069,12 @@
     }
   }
 
-  $("#btn-play-again").addEventListener("click", () => {
+  function returnToMainMenu() {
+    if (state.finishTimeoutId) {
+      clearTimeout(state.finishTimeoutId);
+      state.finishTimeoutId = null;
+    }
+    state.finishNavigated = false;
     if (state.roomRef) {
       state.roomRef.off();
       state.roomRef = null;
@@ -1026,5 +1088,8 @@
     $("#lobby-error").classList.add("hidden");
     $("#join-code-input").value = "";
     showScreen("screen-mode");
-  });
+  }
+
+  $("#btn-play-again").addEventListener("click", returnToMainMenu);
+  $("#btn-back-to-menu").addEventListener("click", returnToMainMenu);
 })();
